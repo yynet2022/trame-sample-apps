@@ -173,6 +173,8 @@ class myView(vtk_widgets.VtkLocalView):
 class BaseViewer:
     def __init__(self, server_or_name=None, title="VTK Viewer",
                  client_type="vue2", **kwargs):
+        self._debug = kwargs.get('debug', False)
+
         self._server = get_server(server_or_name, client_type=client_type)
         # self.state, self.ctrl = self._server.state, self._server.controller
         self._server.controller.on_server_ready.add(self.on_ready)
@@ -194,6 +196,10 @@ class BaseViewer:
     def title(self):
         return self._server.state.trame__title
 
+    @property
+    def debug(self):
+        return self._debug
+
     def get_actors(self, renderer):
         return ()
 
@@ -208,13 +214,17 @@ class BaseViewer:
         renderer.ResetCamera()
         camera = renderer.GetActiveCamera()
 
+        if self.debug:
+            print('def ParallelScale:', camera.GetParallelScale())
         self._camera_prop0 = {
             'focalPoint': camera.GetFocalPoint(),
             'distance': camera.GetDistance(),
-            'parallelScale': 1.2,
+            'parallelScale': camera.GetParallelScale()*1.05,
             'viewAngle': 30.0,
         }
-        # print('camera prop0', self._camera_prop0)
+        if self.debug:
+            print('camera prop0 =')
+            pprint(self._camera_prop0)
 
         initCamera(renderer, self._camera_prop0)
         # printCameraInfo(renderer.GetActiveCamera())

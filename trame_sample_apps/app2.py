@@ -1,8 +1,10 @@
 #
 import os
 import sys
-from ._base import BaseViewer
 import argparse
+from pathlib import Path
+
+from ._base import BaseViewer
 from trame.decorators import TrameApp
 from vtkmodules.vtkRenderingCore import (  # noqa
     vtkDataSetMapper,
@@ -13,11 +15,43 @@ from vtkmodules.vtkIOLegacy import (  # noqa
     vtkUnstructuredGridReader,
     vtkDataSetReader,
 )
+from vtkmodules.vtkIOXML import (  # noqa
+    vtkXMLGenericDataObjectReader,
+    vtkXMLUnstructuredGridReader,
+    vtkXMLPolyDataReader,
+    vtkXMLStructuredGridReader,
+    vtkXMLRectilinearGridReader,
+    vtkXMLImageDataReader,
+    vtkXMLMultiBlockDataReader,
+    vtkXMLHyperTreeGridReader,
+)
+from vtkmodules.vtkIOPLY import vtkPLYReader
+from vtkmodules.vtkIOGeometry import vtkOBJReader, vtkSTLReader, vtkBYUReader
+from vtkmodules.vtkCommonDataModel import (  # noqa
+    vtkDataSet,
+    vtkCompositeDataSet,
+    vtkDataObjectTreeIterator,
+)
 from vtkmodules.vtkRenderingAnnotation import (  # noqa
     vtkAxesActor,
     vtkCubeAxesActor2D,
     vtkCubeAxesActor,
 )
+
+READERCLASS = {
+    ".vtu": vtkXMLUnstructuredGridReader,
+    ".vtp": vtkXMLPolyDataReader,
+    ".vts": vtkXMLStructuredGridReader,
+    ".vtr": vtkXMLRectilinearGridReader,
+    ".vti": vtkXMLImageDataReader,
+    ".vtm": vtkXMLMultiBlockDataReader,
+    ".vto": vtkXMLHyperTreeGridReader,
+    ".vtk": vtkDataSetReader,
+    ".ply":  vtkPLYReader,
+    ".obj":  vtkOBJReader,
+    ".stl":  vtkSTLReader,
+    ".g":    vtkBYUReader,
+}
 
 
 @TrameApp()
@@ -35,34 +69,123 @@ class Viewer(BaseViewer):
         if self._vtk_filename is None:
             return ()
 
-        # reader = vtkUnstructuredGridReader()
-        # vtkDataSetReader は、たぶん
-        # vtkPolyDataReader vtkStructuredPointsReader
-        # vtkStructuredGridReader vtkRectilinearGridReader
-        # vtkUnstructuredGridReader を自動判別してくれる便利クラス
-        # ref) IO/Legacy/vtkDataSetReader.cxx
-        reader = vtkDataSetReader()
+        actors = []
+        mat2color = {
+            "si":     self._colors.GetColor3d('Red'),
+            "polysi": self._colors.GetColor3d('Blue'),
+            "sio2":   self._colors.GetColor3d('Green'),
+            "teos":   self._colors.GetColor3d('Pink'),
+            "bpsg":   self._colors.GetColor3d('Violet'),
+            "si3n4":  self._colors.GetColor3d('Yellow'),
+            "al":     self._colors.GetColor3d('Silver'),
+            "w":      self._colors.GetColor3d('Gold'),
+        }
+
+        ext = Path(self._vtk_filename).suffix
+        if self.debug:
+            print('file suffix is', ext.lower())
+        readercls = READERCLASS.get(ext.lower(), None)
+        if readercls is None:
+            raise RuntimeError('Not found class for reading.')
+
+        reader = readercls()
         # reader.DebugOn()  # 使えないらしい
         reader.SetFileName(self._vtk_filename)
         reader.Update()
         if reader.GetErrorCode() != 0:
             raise RuntimeError('Cannot open: ' + self._vtk_filename)
 
-        # mapper = vtkPolyDataMapper()
-        # vtkDataSetMapper は vtkDataSetSurfaceFilter + vtkPolyDataMapper
-        # のようなもの、かな？
-        # ref) Rendering/Core/vtkDataSetMapper.cxx
-        mapper = vtkDataSetMapper()
-        # mapper.DebugOn()  # こっちも使えないみたい
-        mapper.SetInputConnection(reader.GetOutputPort())
+        data_obj = reader.GetOutput()
+        if self.debug:
+            print('date type is', type(data_obj))
+        if data_obj is not None:
+            data_obj.Register(reader)
+        ds = vtkDataSet.SafeDownCast(data_obj)
+        dc = vtkCompositeDataSet.SafeDownCast(data_obj)
+        if self.debug:
+            print('vtkDataSet is', ds is not None)
+            print('vtkCompositeDataSet is', dc is not None)
 
-        actor = vtkActor()
-        actor.SetMapper(mapper)
-        prop = actor.GetProperty()
-        prop.SetAmbient(0.0)
-        prop.SetDiffuse(1.0)
-        prop.SetSpecular(0.0)
-        prop.SetColor(self._colors.GetColor3d('TestColor'))
+        bounds = None
+
+        if ds is not None:
+            print("  number of cells:", ds.GetNumberOfCells())
+            print("  number of points:", ds.GetNumberOfPoints())
+
+            # mapper = vtkPolyDataMapper()
+            # vtkDataSetMapper は vtkDataSetSurfaceFilter + vtkPolyDataMapper
+            # のようなもの、かな？
+            # ref) Rendering/Core/vtkDataSetMapper.cxx
+            mapper = vtkDataSetMapper()
+            # mapper.DebugOn()  # こっちも使えないみたい
+            # mapper.SetInputConnection(reader.GetOutputPort())
+            mapper.SetInputData(ds)
+
+            actor = vtkActor()
+            actor.SetMapper(mapper)
+            prop = actor.GetProperty()
+            prop.SetAmbient(0.1)
+            prop.SetDiffuse(0.8)
+            prop.SetSpecular(0.1)
+            prop.SetColor(self._colors.GetColor3d('Black'))
+
+            bounds = actor.GetBounds()
+            if self.debug:
+                print('   bounds:', bounds)
+
+            actors.append(actor)
+
+        if dc is not None:
+            print("  total of points:", dc.GetNumberOfPoints())
+            defcolor = self._colors.GetColor3d('Black')
+            compf = (min, max, min, max, min, max)
+
+            iter = vtkDataObjectTreeIterator()
+            iter.SetDataSet(dc)
+            iter.SkipEmptyNodesOn()
+            iter.VisitOnlyLeavesOn()
+            iter.InitTraversal()
+            while not iter.IsDoneWithTraversal():
+                dso = iter.GetCurrentDataObject()
+                ds = vtkDataSet.SafeDownCast(dso)
+                info = iter.GetCurrentMetaData()
+                if ds is None:
+                    continue
+                name = ""
+                if info.Has(vtkCompositeDataSet.NAME()):
+                    name = info.Get(vtkCompositeDataSet.NAME())
+                if self.debug:
+                    print(" data(#):", name)
+                    print("   number of cells:", ds.GetNumberOfCells())
+                    print("   number of points:", ds.GetNumberOfPoints())
+
+                mapper = vtkDataSetMapper()
+                mapper.SetInputData(ds)
+
+                actor = vtkActor()
+                actor.SetMapper(mapper)
+                prop = actor.GetProperty()
+                prop.SetAmbient(0.1)
+                prop.SetDiffuse(0.8)
+                prop.SetSpecular(0.1)
+
+                if self.debug:
+                    print('   color:', mat2color.get(name.lower(), defcolor))
+                prop.SetColor(mat2color.get(name.lower(), defcolor))
+
+                if bounds is None:
+                    bounds = actor.GetBounds()
+                else:
+                    b = actor.GetBounds()
+                    bounds = list(map(
+                        lambda f, x, y: f(x, y), compf, bounds, b))
+
+                actors.append(actor)
+
+                iter.GoToNextItem()
+
+            if self.debug:
+                print(' bounds:', bounds)
 
         """
         axes = vtkAxesActor()
@@ -87,10 +210,9 @@ class Viewer(BaseViewer):
             SetColor(self._colors.GetColor3d('Red'))
         """
 
-        print('actor.bounds', actor.GetBounds())
         axes = vtkCubeAxesActor()
         axes.SetUseTextActor3D(1)
-        axes.SetBounds(actor.GetBounds())
+        axes.SetBounds(bounds)
         axes.SetAxisOrigin(-0.02, -0.02, 0.0)
         # axis.SetUseAxisOrigin(1)
 
@@ -149,8 +271,9 @@ class Viewer(BaseViewer):
         # axis->PrintSelf (std::cout, vtkIndent(2));
 
         axes.SetCamera(renderer.GetActiveCamera())
+        actors.append(axes)
 
-        return actor, axes
+        return actors
 
 
 def main():
