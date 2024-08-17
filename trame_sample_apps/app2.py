@@ -58,12 +58,16 @@ READERCLASS = {
 class Viewer(BaseViewer):
     def __init__(self, filename, **kwargs):
         self._vtk_filename = filename[0] if len(filename) > 0 else None
+        self._axes_actor = None
         super().__init__(**kwargs)
 
     @property
     def title(self):
         return self._server.state.trame__title + ': ' + \
             (self._vtk_filename if self._vtk_filename is not None else "")
+
+    def with_axes(self):
+        return True
 
     def get_actors(self, renderer):
         if self._vtk_filename is None:
@@ -262,18 +266,22 @@ class Viewer(BaseViewer):
         axes.ZAxisMinorTickVisibilityOff()
 
         axes.SetFlyModeToOuterEdges()
-        # axis->SetFlyModeToClosestTriad ();
-        # axis->SetFlyModeToFurthestTriad ();
-        # axis->SetFlyModeToStaticTriad ();
-        # axis->SetFlyModeToStaticEdges ();
+        # axes.SetFlyModeToClosestTriad()
+        # axes.SetFlyModeToFurthestTriad()
+        # axes.SetFlyModeToStaticTriad()
+        # axes.SetFlyModeToStaticEdges()
 
-        # std::cout << "Axes:" << std::endl;
-        # axis->PrintSelf (std::cout, vtkIndent(2));
+        # print('Axes', axes)
 
         axes.SetCamera(renderer.GetActiveCamera())
+        self._axes_actor = axes
         actors.append(axes)
 
         return actors
+
+    def set_show_axes(self, sw):
+        if self._axes_actor is not None:
+            self._axes_actor.SetVisibility(sw)
 
 
 def main():

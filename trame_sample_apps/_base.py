@@ -245,6 +245,14 @@ class BaseViewer:
         self._push_camera(
             self._vtk_rw.GetRenderers().GetFirstRenderer().GetActiveCamera())
 
+    def set_show_axes(self, sw):
+        pass
+
+    @change("show_axes")
+    def switch_show_axes(self, *args, **kwargs):
+        self.set_show_axes(kwargs.get('show_axes', None))
+        self.server.controller.update_views()  # 必要！
+
     @change("scale")
     def update_scale(self, scale=-1, **kwargs):
         # print('update_scale> ', scale)
@@ -314,10 +322,14 @@ class BaseViewer:
             camera.SetParallelProjection(camera_info.get("parallelProjection"))
             camera.SetParallelScale(s)
 
-        if do_push:
+        # if do_push:
+        if True:
             self.push_camera()
             self.server.controller.update_views()
         self.server.state.scale = scale
+
+    def with_axes(self):
+        return False
 
     def _setup_ui(self):
         with SinglePageLayout(self.server) as layout:
@@ -328,7 +340,16 @@ class BaseViewer:
 
             with layout.toolbar:
                 vuetify.VSpacer()
+                if self.with_axes():
+                    vuetify.VSwitch(
+                        label='Axes',
+                        v_model=('show_axes', True),
+                        hide_details=True,
+                        dense=True,
+                    )
+                    vuetify.VSpacer()
                 vuetify.VSlider(
+                    label='Scale:',
                     v_model=("scale", VTK_VIEW_SCALE_INFO['default']),
                     min=VTK_VIEW_SCALE_INFO['min'],
                     max=VTK_VIEW_SCALE_INFO['max'],
