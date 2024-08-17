@@ -6,6 +6,16 @@ My sample WebApp by trame
 pip install vtk trame trame-vtk trame-vuetify
 ```
 
+### My environment (2024/8/17)
+- Windows         11 home 23H2
+- Python          3.12.5
+- vtk             9.3.1
+- trame           3.6.3
+- trame-vtk       2.8.10
+- trame-vtk       2.8.10
+- trame-vuetify   2.6.2
+
+
 ## Installation
 ```bash
 pip install -e .
