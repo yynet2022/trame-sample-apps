@@ -11,7 +11,7 @@ from vtkmodules.vtkRenderingCore import (
 
 @TrameApp()
 class Viewer(BaseViewer):
-    def get_actors(self, renderer):
+    def generate_actors(self, renderer):
         e = vtkEarthSource()
         e.OutlineOn()
         e.Update()

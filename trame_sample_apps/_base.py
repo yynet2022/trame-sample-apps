@@ -185,6 +185,9 @@ class BaseViewer:
         cp = map(lambda x: x / 255.0, [0, 255, 255, 255])
         self._colors.SetColor("TestColor", *cp)
 
+        self._vtk_rw = None
+        self._ui = None
+
         self._vtk_rw = self._vtk_setup()
         self._ui = self._setup_ui()
 
@@ -200,14 +203,22 @@ class BaseViewer:
     def debug(self):
         return self._debug
 
-    def get_actors(self, renderer):
+    @property
+    def renderer(self):
+        assert self._vtk_rw is not None, "self._vtk_rw is None."
+        return self._vtk_rw.GetRenderers().GetFirstRenderer()
+
+    def push_camera(self):
+        self._push_camera(self.renderer.GetActiveCamera())
+
+    def generate_actors(self, renderer):
         return ()
 
     def _vtk_setup(self):
         renderer = vtkRenderer()
         renderer.SetBackground(self._colors.GetColor3d('White'))
 
-        for x in self.get_actors(renderer):
+        for x in self.generate_actors(renderer):
             renderer.AddActor(x)
 
         # ResetCamera()はしておく
@@ -241,18 +252,6 @@ class BaseViewer:
         renderWindow.Render()
         return renderWindow
 
-    def push_camera(self):
-        self._push_camera(
-            self._vtk_rw.GetRenderers().GetFirstRenderer().GetActiveCamera())
-
-    def set_show_axes(self, sw):
-        pass
-
-    @change("show_axes")
-    def switch_show_axes(self, *args, **kwargs):
-        self.set_show_axes(kwargs.get('show_axes', None))
-        self.server.controller.update_views()  # 必要！
-
     @change("scale")
     def update_scale(self, scale=-1, **kwargs):
         # print('update_scale> ', scale)
@@ -279,8 +278,7 @@ class BaseViewer:
         self.server.state.scale = VTK_VIEW_SCALE_INFO['default']
         for x in self._vtk_rw.GetRenderers():
             initCamera(x, self._camera_prop0)
-        # printCameraInfo(
-        #     self._vtk_rw.GetRenderers().GetFirstRenderer().GetActiveCamera())
+        # printCameraInfo(self.renderer.GetActiveCamera())
         self.push_camera()
         # self._vtk_rw.Render()
         self.server.controller.update_views()
@@ -328,8 +326,21 @@ class BaseViewer:
             self.server.controller.update_views()
         self.server.state.scale = scale
 
-    def with_axes(self):
-        return False
+    def in_layout_toolbar(self):
+        vuetify.VSpacer()
+        vuetify.VSlider(
+            label='Scale:',
+            v_model=("scale", VTK_VIEW_SCALE_INFO['default']),
+            min=VTK_VIEW_SCALE_INFO['min'],
+            max=VTK_VIEW_SCALE_INFO['max'],
+            step=VTK_VIEW_SCALE_INFO['step'],
+            hide_details=True,
+            dense=True,
+            style="max-width: 300px",
+        )
+        vuetify.VDivider(vertical=True, classes="mx-2")
+        with vuetify.VBtn(icon=True, click=self.update_reset_scale):
+            vuetify.VIcon("mdi-undo-variant")
 
     def _setup_ui(self):
         with SinglePageLayout(self.server) as layout:
@@ -339,28 +350,7 @@ class BaseViewer:
             layout.title.set_text(self.title)
 
             with layout.toolbar:
-                vuetify.VSpacer()
-                if self.with_axes():
-                    vuetify.VSwitch(
-                        label='Axes',
-                        v_model=('show_axes', True),
-                        hide_details=True,
-                        dense=True,
-                    )
-                    vuetify.VSpacer()
-                vuetify.VSlider(
-                    label='Scale:',
-                    v_model=("scale", VTK_VIEW_SCALE_INFO['default']),
-                    min=VTK_VIEW_SCALE_INFO['min'],
-                    max=VTK_VIEW_SCALE_INFO['max'],
-                    step=VTK_VIEW_SCALE_INFO['step'],
-                    hide_details=True,
-                    dense=True,
-                    style="max-width: 300px",
-                )
-                vuetify.VDivider(vertical=True, classes="mx-2")
-                with vuetify.VBtn(icon=True, click=self.update_reset_scale):
-                    vuetify.VIcon("mdi-undo-variant")
+                self.in_layout_toolbar()
 
             with layout.content:
                 with vuetify.VContainer(

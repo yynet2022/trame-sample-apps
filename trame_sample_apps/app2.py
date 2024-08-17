@@ -5,7 +5,8 @@ import argparse
 from pathlib import Path
 
 from ._base import BaseViewer
-from trame.decorators import TrameApp
+from trame.decorators import TrameApp, change
+from trame.widgets import vuetify
 from vtkmodules.vtkRenderingCore import (  # noqa
     vtkDataSetMapper,
     vtkPolyDataMapper,
@@ -66,10 +67,7 @@ class Viewer(BaseViewer):
         return self._server.state.trame__title + ': ' + \
             (self._vtk_filename if self._vtk_filename is not None else "")
 
-    def with_axes(self):
-        return True
-
-    def get_actors(self, renderer):
+    def generate_actors(self, renderer):
         if self._vtk_filename is None:
             return ()
 
@@ -279,10 +277,55 @@ class Viewer(BaseViewer):
 
         return actors
 
-    def set_show_axes(self, sw):
+    @change("show_axes")
+    def switch_show_axes(self, *args, **kwargs):
         if self._axes_actor is not None:
-            self._axes_actor.SetVisibility(sw)
+            sw = kwargs.get('show_axes', None)
+            if type(sw) is bool:
+                self._axes_actor.SetVisibility(sw)
+                self.server.controller.update_views()  # 必要！
 
+    @change("show_surface")
+    def switch_show_surface(self, *args, **kwargs):
+        # print('In switch_show_surface', kwargs.get('show_surface', None))
+        sw = kwargs.get('show_surface', None)
+        if type(sw) is not bool:
+            return
+
+        for a in self.renderer.GetActors():
+            a.InitPathTraversal()
+            # print(type(a), dir(a))
+            while True:
+                p = a.GetNextPath()
+                if p is None:
+                    break
+                t = vtkActor.SafeDownCast(p.GetLastNode().GetViewProp())
+                if t is None:
+                    continue
+                if sw:
+                    t.GetProperty().SetRepresentationToSurface()
+                else:
+                    t.GetProperty().SetRepresentationToWireframe()
+
+        # GetInteractor ()->Render ();
+        self.server.controller.update_views()  # 必要！
+
+    def in_layout_toolbar(self):
+        vuetify.VSpacer()
+        vuetify.VSwitch(
+            label='Surface',
+            v_model=('show_surface', True),
+            hide_details=True,
+            dense=True,
+        )
+        vuetify.VSpacer()
+        vuetify.VSwitch(
+            label='Axes',
+            v_model=('show_axes', True),
+            hide_details=True,
+            dense=True,
+        )
+        super().in_layout_toolbar()
 
 def main():
     parser = argparse.ArgumentParser(
