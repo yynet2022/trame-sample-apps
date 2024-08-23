@@ -30,7 +30,8 @@ or packaging:
 ```bash
 python -m trame_sample_apps.app1
 python -m trame_sample_apps.app2 a.vtk
-(a.vtk in data/)
+python -m trame_sample_apps.app2 c.vtp
+(a.vtk and c.vtp in trame_sample_apps/data/)
 ```
 
 ## License
@@ -39,6 +40,7 @@ This is under [MIT license](https://en.wikipedia.org/wiki/MIT_License).
 
 ## Patch
 For trame-vtk  2.8.10
+It seems that remote camera information (parallelProjection, ...) is not shared locally during the initial stage of program startup.
 
 ```bash
 --- trame_vtk.org/modules/vtk/serializers/render_windows.py	2024-08-14 11:50:20.770132700 +0900

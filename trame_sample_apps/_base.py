@@ -4,7 +4,8 @@ from pprint import pprint  # noqa
 
 from trame.app import get_server
 from trame.widgets import vuetify, vtk as vtk_widgets
-from trame.ui.vuetify import SinglePageLayout
+from trame.ui.vuetify import SinglePageLayout  # noqa
+from trame.ui.vuetify import SinglePageWithDrawerLayout  # noqa
 from trame.decorators import change
 
 from vtkmodules.vtkRenderingCore import (
@@ -320,13 +321,12 @@ class BaseViewer:
             camera.SetParallelProjection(camera_info.get("parallelProjection"))
             camera.SetParallelScale(s)
 
-        # if do_push:
-        if True:
+        if do_push or True:
             self.push_camera()
             self.server.controller.update_views()
         self.server.state.scale = scale
 
-    def in_layout_toolbar(self):
+    def setup_ui_in_layout_toolbar(self, toolbar):
         vuetify.VSpacer()
         vuetify.VSlider(
             label='Scale:',
@@ -342,15 +342,21 @@ class BaseViewer:
         with vuetify.VBtn(icon=True, click=self.update_reset_scale):
             vuetify.VIcon("mdi-undo-variant")
 
+    def setup_ui_in_layout_drawer(self, drawer):
+        drawer.width = 0
+
     def _setup_ui(self):
-        with SinglePageLayout(self.server) as layout:
+        with SinglePageWithDrawerLayout(self.server) as layout:
             layout.icon.click = (
                 self.do_icon_click,
                 "[utils.vtk.event($event), $refs.view.getCamera()]")
             layout.title.set_text(self.title)
 
-            with layout.toolbar:
-                self.in_layout_toolbar()
+            with layout.toolbar as toolbar:
+                self.setup_ui_in_layout_toolbar(toolbar)
+
+            with layout.drawer as drawer:
+                self.setup_ui_in_layout_drawer(drawer)
 
             with layout.content:
                 with vuetify.VContainer(

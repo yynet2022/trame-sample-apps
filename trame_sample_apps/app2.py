@@ -32,6 +32,7 @@ from vtkmodules.vtkCommonDataModel import (  # noqa
     vtkDataSet,
     vtkCompositeDataSet,
     vtkDataObjectTreeIterator,
+    vtkDataObject,
 )
 from vtkmodules.vtkRenderingAnnotation import (  # noqa
     vtkAxesActor,
@@ -59,8 +60,11 @@ READERCLASS = {
 class Viewer(BaseViewer):
     def __init__(self, filename, **kwargs):
         self._vtk_filename = filename[0] if len(filename) > 0 else None
+        self._dataset_arrays = []
+        self._draw_actors = []
         self._axes_actor = None
         super().__init__(**kwargs)
+        # self._server.state.setdefault("colormap_idx", 0)
 
     @property
     def title(self):
@@ -71,7 +75,7 @@ class Viewer(BaseViewer):
         if self._vtk_filename is None:
             return ()
 
-        actors = []
+        self._draw_actors = []
         mat2color = {
             "si":     self._colors.GetColor3d('Red'),
             "polysi": self._colors.GetColor3d('Blue'),
@@ -114,6 +118,27 @@ class Viewer(BaseViewer):
             print("  number of cells:", ds.GetNumberOfCells())
             print("  number of points:", ds.GetNumberOfPoints())
 
+            fields = [
+                (ds.GetPointData(), vtkDataObject.FIELD_ASSOCIATION_POINTS),
+                (ds.GetCellData(), vtkDataObject.FIELD_ASSOCIATION_CELLS),
+            ]
+            dataset_arrays = []
+            for field in fields:
+                field_arrays, association = field
+                for i in range(field_arrays.GetNumberOfArrays()):
+                    array = field_arrays.GetArray(i)
+                    # print('array', array)
+                    dataset_arrays.append(
+                        {"text": array.GetName(),
+                         "variable_name": array.GetName(),
+                         "value": i,
+                         "range": list(array.GetRange()),
+                         "type": association,
+                         }
+                    )
+            # pprint(dataset_arrays)
+            self._dataset_arrays = dataset_arrays
+
             # mapper = vtkPolyDataMapper()
             # vtkDataSetMapper は vtkDataSetSurfaceFilter + vtkPolyDataMapper
             # のようなもの、かな？
@@ -135,7 +160,7 @@ class Viewer(BaseViewer):
             if self.debug:
                 print('   bounds:', bounds)
 
-            actors.append(actor)
+            self._draw_actors.append(actor)
 
         if dc is not None:
             print("  total of points:", dc.GetNumberOfPoints())
@@ -182,12 +207,21 @@ class Viewer(BaseViewer):
                     bounds = list(map(
                         lambda f, x, y: f(x, y), compf, bounds, b))
 
-                actors.append(actor)
+                self._draw_actors.append(actor)
 
                 iter.GoToNextItem()
 
             if self.debug:
                 print(' bounds:', bounds)
+
+        self._dataset_arrays.append(
+            {"text": '<solid>',
+             "variable_name": '<solid>',
+             "value": len(self._dataset_arrays),
+             "range": [0, 255],
+             "type": -1,
+             }
+        )
 
         """
         axes = vtkAxesActor()
@@ -273,9 +307,8 @@ class Viewer(BaseViewer):
 
         axes.SetCamera(renderer.GetActiveCamera())
         self._axes_actor = axes
-        actors.append(axes)
 
-        return actors
+        return *self._draw_actors, axes
 
     @change("show_axes")
     def switch_show_axes(self, *args, **kwargs):
@@ -292,7 +325,8 @@ class Viewer(BaseViewer):
         if type(sw) is not bool:
             return
 
-        for a in self.renderer.GetActors():
+        # for a in self.renderer.GetActors():
+        for a in self._draw_actors:
             a.InitPathTraversal()
             # print(type(a), dir(a))
             while True:
@@ -310,7 +344,7 @@ class Viewer(BaseViewer):
         # GetInteractor ()->Render ();
         self.server.controller.update_views()  # 必要！
 
-    def in_layout_toolbar(self):
+    def setup_ui_in_layout_toolbar(self, toolbar):
         vuetify.VSpacer()
         vuetify.VSwitch(
             label='Surface',
@@ -325,7 +359,47 @@ class Viewer(BaseViewer):
             hide_details=True,
             dense=True,
         )
-        super().in_layout_toolbar()
+        super().setup_ui_in_layout_toolbar(toolbar)
+
+    @change("colormap_idx")
+    def update_colormap_idx(self, *args, **kwargs):
+        # print('update_colormap_idx', args)
+        # pprint(kwargs)
+        idx = kwargs.get('colormap_idx', -1)
+        # print('idx', idx)
+        if len(self._dataset_arrays) == 0:
+            return
+        arr = self._dataset_arrays[idx]
+        type = arr.get("type")
+
+        for actor in self._draw_actors:
+            mapper = actor.GetMapper()
+            if type < 0:
+                mapper.ScalarVisibilityOff()
+            else:
+                mapper.ScalarVisibilityOn()
+                mapper.SelectColorArray(arr.get("variable_name"))
+                mapper.SetScalarRange(arr.get("range"))
+                if type == vtkDataObject.FIELD_ASSOCIATION_POINTS:
+                    mapper.SetScalarModeToUsePointFieldData()
+                else:
+                    mapper.SetScalarModeToUseCellFieldData()
+        self.server.controller.update_views()
+
+    def setup_ui_in_layout_drawer(self, drawer):
+        drawer.width = 175
+        with vuetify.VRow(classes="pt-2", dense=True):
+            with vuetify.VCol(cols="12"):
+                vuetify.VSelect(
+                    label="Select",
+                    v_model=("colormap_idx", 0),
+                    items=("array_list", self._dataset_arrays),
+                    hide_details=True,
+                    dense=True,
+                    outlined=True,
+                    classes="pt-1",
+                )
+
 
 def main():
     parser = argparse.ArgumentParser(
