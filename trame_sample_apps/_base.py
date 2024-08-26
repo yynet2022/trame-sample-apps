@@ -173,13 +173,15 @@ class myView(vtk_widgets.VtkLocalView):
 
 class BaseViewer:
     def __init__(self, server_or_name=None, title="VTK Viewer",
-                 client_type="vue2", **kwargs):
+                 client_type="vue2", state_defaults={}, **kwargs):
         self._debug = kwargs.get('debug', False)
 
         self._server = get_server(server_or_name, client_type=client_type)
         # self.state, self.ctrl = self._server.state, self._server.controller
         self._server.controller.on_server_ready.add(self.on_ready)
 
+        for k in state_defaults:
+            self._server.state.setdefault(k, state_defaults[k])
         self._server.state.trame__title = title
 
         self._colors = vtkNamedColors()

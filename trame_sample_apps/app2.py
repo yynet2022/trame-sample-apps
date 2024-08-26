@@ -7,6 +7,10 @@ from pathlib import Path
 from ._base import BaseViewer
 from trame.decorators import TrameApp, change
 from trame.widgets import vuetify
+from vtkmodules.vtkCommonCore import (
+    vtkLookupTable,
+    vtkUnsignedCharArray,
+)
 from vtkmodules.vtkRenderingCore import (  # noqa
     vtkDataSetMapper,
     vtkPolyDataMapper,
@@ -38,7 +42,10 @@ from vtkmodules.vtkRenderingAnnotation import (  # noqa
     vtkAxesActor,
     vtkCubeAxesActor2D,
     vtkCubeAxesActor,
+    vtkScalarBarActor,
 )
+
+assert sys.version_info[:2] >= (3, 10), "Python 3.10 required"  # noqa
 
 READERCLASS = {
     ".vtu": vtkXMLUnstructuredGridReader,
@@ -63,8 +70,15 @@ class Viewer(BaseViewer):
         self._dataset_arrays = []
         self._draw_actors = []
         self._axes_actor = None
-        super().__init__(**kwargs)
+        self._scalarbar_actor = None
+        state_defaults = {"colormap_idx": 0,
+                          "lookuptable_idx": 1,
+                          "active_ui": None,
+                          }
+        super().__init__(state_defaults=state_defaults, **kwargs)
         # self._server.state.setdefault("colormap_idx", 0)
+        # self._server.state.setdefault("lookuptable_idx", 1)
+        # self._server.state.setdefault("active_ui", None)
 
     @property
     def title(self):
@@ -128,12 +142,15 @@ class Viewer(BaseViewer):
                 for i in range(field_arrays.GetNumberOfArrays()):
                     array = field_arrays.GetArray(i)
                     # print('array', array)
+                    uc = vtkUnsignedCharArray.SafeDownCast(array)
+                    # print('uc', uc)
                     dataset_arrays.append(
                         {"text": array.GetName(),
                          "variable_name": array.GetName(),
                          "value": i,
                          "range": list(array.GetRange()),
                          "type": association,
+                         "u_char": uc is not None,
                          }
                     )
             # pprint(dataset_arrays)
@@ -147,6 +164,29 @@ class Viewer(BaseViewer):
             # mapper.DebugOn()  # こっちも使えないみたい
             # mapper.SetInputConnection(reader.GetOutputPort())
             mapper.SetInputData(ds)
+
+            lut = mapper.GetLookupTable()
+            # print(lut)
+
+            # default (rainbow Red -> Blue)
+            lut.SetHueRange(0.0, 0.66667)
+            lut.SetSaturationRange(1, 1)
+            lut.SetValueRange(1, 1)
+            lut.SetAlphaRange(1, 1)
+            lut.SetNumberOfColors(256)
+
+            lut.Build()
+            # mapper.SetLookupTable(lut)
+
+            sb_actor = vtkScalarBarActor()
+            sb_actor.SetLookupTable(lut)
+            # sb_actor.SetNumberOfLabels(7)
+            sb_actor.UnconstrainedFontSizeOn()
+            sb_actor.SetMaximumWidthInPixels(100)
+            sb_actor.SetMaximumHeightInPixels(800 // 3)
+            # sb_actor.SetTitle("text")
+            self._scalarbar_actor = sb_actor
+            renderer.AddActor2D(sb_actor)
 
             actor = vtkActor()
             actor.SetMapper(mapper)
@@ -220,8 +260,12 @@ class Viewer(BaseViewer):
              "value": len(self._dataset_arrays),
              "range": [0, 255],
              "type": -1,
+             "u_char": False,
              }
         )
+        for i, arr in enumerate(self._dataset_arrays):
+            self._dataset_arrays[i]["value"] = int(i)
+        # pprint(self._dataset_arrays)
 
         """
         axes = vtkAxesActor()
@@ -310,6 +354,20 @@ class Viewer(BaseViewer):
 
         return *self._draw_actors, axes
 
+    def _ui_card(self, title, ui_name):
+        with vuetify.VCard(v_show=f"active_ui == '{ui_name}'"):
+            '''
+            vuetify.VCardTitle(
+                title,
+                classes="grey lighten-1 py-1 grey--text text--darken-3",
+                style="user-select: none; cursor: pointer",
+                hide_details=True,
+                dense=True,
+            )
+            '''
+            content = vuetify.VCardText(classes="py-2")
+        return content
+
     @change("show_axes")
     def switch_show_axes(self, *args, **kwargs):
         if self._axes_actor is not None:
@@ -371,11 +429,14 @@ class Viewer(BaseViewer):
             return
         arr = self._dataset_arrays[idx]
         type = arr.get("type")
+        uc = arr.get("u_char", False)
 
+        active_ui = "nothing"
         for actor in self._draw_actors:
             mapper = actor.GetMapper()
             if type < 0:
                 mapper.ScalarVisibilityOff()
+                self._scalarbar_actor.SetVisibility(False)
             else:
                 mapper.ScalarVisibilityOn()
                 mapper.SelectColorArray(arr.get("variable_name"))
@@ -384,6 +445,65 @@ class Viewer(BaseViewer):
                     mapper.SetScalarModeToUsePointFieldData()
                 else:
                     mapper.SetScalarModeToUseCellFieldData()
+                self._scalarbar_actor.SetVisibility(not uc)
+                if not uc:
+                    active_ui = "lut"
+        self._server.state.active_ui = active_ui
+        self.server.controller.update_views()
+
+    @change("lookuptable_idx")
+    def update_lookuptable_idx(self, *args, **kwargs):
+        idx = kwargs.get('lookuptable_idx', -1)
+        # print('update_lookuptable_idx', idx)
+
+        lut = vtkLookupTable()
+        # default, Rainbow (Red -> Blue)
+        lut.SetHueRange(0.0, 0.66667)
+        lut.SetSaturationRange(1, 1)
+        lut.SetValueRange(1, 1)
+        lut.SetAlphaRange(1, 1)
+        lut.SetNumberOfColors(256)
+
+        match idx:
+            case 1:  # rainbow Blue -> Red
+                lut.SetHueRange(0.66667, 0.0)
+
+            case 2:  # gray scale
+                lut.SetHueRange(0, 0)
+                lut.SetSaturationRange(0, 0)
+                lut.SetValueRange(0.2, 1.0)
+
+            case 3:  # Custom
+                lut.SetNumberOfColors(20)
+                lut.Build()
+
+                colors = self._colors
+                lut.SetTableValue(0, colors.GetColor4d("red"))
+                lut.SetTableValue(1, colors.GetColor4d("lime"))
+                lut.SetTableValue(2, colors.GetColor4d("yellow"))
+                lut.SetTableValue(3, colors.GetColor4d("blue"))
+                lut.SetTableValue(4, colors.GetColor4d("magenta"))
+                lut.SetTableValue(5, colors.GetColor4d("cyan"))
+                lut.SetTableValue(6, colors.GetColor4d("spring_green"))
+                lut.SetTableValue(7, colors.GetColor4d("lavender"))
+                lut.SetTableValue(8, colors.GetColor4d("mint_cream"))
+                lut.SetTableValue(9, colors.GetColor4d("violet"))
+                lut.SetTableValue(10, colors.GetColor4d("ivory_black"))
+                lut.SetTableValue(11, colors.GetColor4d("coral"))
+                lut.SetTableValue(12, colors.GetColor4d("pink"))
+                lut.SetTableValue(13, colors.GetColor4d("salmon"))
+                lut.SetTableValue(14, colors.GetColor4d("sepia"))
+                lut.SetTableValue(15, colors.GetColor4d("carrot"))
+                lut.SetTableValue(16, colors.GetColor4d("gold"))
+                lut.SetTableValue(17, colors.GetColor4d("forest_green"))
+                lut.SetTableValue(18, colors.GetColor4d("turquoise"))
+                lut.SetTableValue(19, colors.GetColor4d("plum"))
+
+        lut.Build()
+        for actor in self._draw_actors:
+            mapper = actor.GetMapper()
+            mapper.SetLookupTable(lut)
+        self._scalarbar_actor.SetLookupTable(lut)
         self.server.controller.update_views()
 
     def setup_ui_in_layout_drawer(self, drawer):
@@ -393,12 +513,28 @@ class Viewer(BaseViewer):
                 vuetify.VSelect(
                     label="Select",
                     v_model=("colormap_idx", 0),
-                    items=("array_list", self._dataset_arrays),
+                    items=("colormap_list", self._dataset_arrays),
                     hide_details=True,
                     dense=True,
                     outlined=True,
                     classes="pt-1",
                 )
+                _arrays = [
+                    {"text": "Rainbow (Red -> Blue)", "value": 0},
+                    {"text": "Rainbow (Blue -> Red)", "value": 1},
+                    {"text": "Grayscale", "value": 2},
+                    {"text": "Custom", "value": 3},
+                ]
+                with self._ui_card(title="Lookup Table", ui_name="lut"):
+                    vuetify.VSelect(
+                        label="Select lookup-table",
+                        v_model=("lookuptable_idx", 1),
+                        items=("lookuptable_list", _arrays),
+                        hide_details=True,
+                        dense=True,
+                        outlined=True,
+                        classes="pt-1",
+                    )
 
 
 def main():

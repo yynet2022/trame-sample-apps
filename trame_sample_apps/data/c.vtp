@@ -3,34 +3,36 @@
   <PolyData>
     <Piece NumberOfPoints="12"                   NumberOfVerts="0"                    NumberOfLines="0"                    NumberOfStrips="0"                    NumberOfPolys="4"                   >
       <PointData>
+        <DataArray type="Float64" Name="foo" format="appended" RangeMin="0"                    RangeMax="122.1"                offset="0"                   />
+        <DataArray type="Float64" Name="bar" format="appended" RangeMin="0.1"                  RangeMax="100.1"                offset="104"                 />
       </PointData>
       <CellData>
-        <DataArray type="UInt8" Name="Color1" NumberOfComponents="3" format="appended" RangeMin="128"                  RangeMax="360.62445841"         offset="0"                   />
-        <DataArray type="UInt8" Name="Color2" NumberOfComponents="3" format="appended" RangeMin="255"                  RangeMax="255"                  offset="52"                  />
-        <DataArray type="UInt8" Name="Color3" NumberOfComponents="3" format="appended" RangeMin="0"                    RangeMax="441.67295593"         offset="100"                 />
+        <DataArray type="UInt8" Name="Color1" NumberOfComponents="3" format="appended" RangeMin="128"                  RangeMax="360.62445841"         offset="168"                 />
+        <DataArray type="UInt8" Name="Color2" NumberOfComponents="3" format="appended" RangeMin="255"                  RangeMax="255"                  offset="220"                 />
+        <DataArray type="UInt8" Name="Color3" NumberOfComponents="3" format="appended" RangeMin="0"                    RangeMax="441.67295593"         offset="268"                 />
       </CellData>
       <Points>
-        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="appended" RangeMin="0"                    RangeMax="1.1661903912"         offset="152"                 />
+        <DataArray type="Float32" Name="Points" NumberOfComponents="3" format="appended" RangeMin="0"                    RangeMax="1.1661903912"         offset="320"                 />
       </Points>
       <Verts>
-        <DataArray type="Int64" Name="connectivity" format="appended" RangeMin=""                     RangeMax=""                     offset="248"                 />
-        <DataArray type="Int64" Name="offsets" format="appended" RangeMin=""                     RangeMax=""                     offset="264"                 />
+        <DataArray type="Int64" Name="connectivity" format="appended" RangeMin=""                     RangeMax=""                     offset="416"                 />
+        <DataArray type="Int64" Name="offsets" format="appended" RangeMin=""                     RangeMax=""                     offset="432"                 />
       </Verts>
       <Lines>
-        <DataArray type="Int64" Name="connectivity" format="appended" RangeMin=""                     RangeMax=""                     offset="280"                 />
-        <DataArray type="Int64" Name="offsets" format="appended" RangeMin=""                     RangeMax=""                     offset="296"                 />
+        <DataArray type="Int64" Name="connectivity" format="appended" RangeMin=""                     RangeMax=""                     offset="448"                 />
+        <DataArray type="Int64" Name="offsets" format="appended" RangeMin=""                     RangeMax=""                     offset="464"                 />
       </Lines>
       <Strips>
-        <DataArray type="Int64" Name="connectivity" format="appended" RangeMin=""                     RangeMax=""                     offset="312"                 />
-        <DataArray type="Int64" Name="offsets" format="appended" RangeMin=""                     RangeMax=""                     offset="328"                 />
+        <DataArray type="Int64" Name="connectivity" format="appended" RangeMin=""                     RangeMax=""                     offset="480"                 />
+        <DataArray type="Int64" Name="offsets" format="appended" RangeMin=""                     RangeMax=""                     offset="496"                 />
       </Strips>
       <Polys>
-        <DataArray type="Int64" Name="connectivity" format="appended" RangeMin=""                     RangeMax=""                     offset="344"                 />
-        <DataArray type="Int64" Name="offsets" format="appended" RangeMin=""                     RangeMax=""                     offset="416"                 />
+        <DataArray type="Int64" Name="connectivity" format="appended" RangeMin=""                     RangeMax=""                     offset="512"                 />
+        <DataArray type="Int64" Name="offsets" format="appended" RangeMin=""                     RangeMax=""                     offset="584"                 />
       </Polys>
     </Piece>
   </PolyData>
   <AppendedData encoding="base64">
-   _AQAAAACAAAAMAAAAEwAAAA==eJz7z8DA0ADE////ZwAAGPcEfQ==AQAAAACAAAAMAAAAEAAAAA==eJxjYPj/nwEIQCQAGfID/Q==AQAAAACAAAAMAAAAFQAAAA==eJz7/////wOnGRgY/jMwAAA4bAaHAQAAAACAAACQAAAANAAAAA==eJxjYGiwZ8AJYHIQ+uwZHzuYDILdYA9hw9ScQVJzBknNGbiaWTMl4XYi2A32IDYAvcMY7A==AAAAAACAAAAAAAAAAAAAAACAAAAAAAAAAAAAAACAAAAAAAAAAAAAAACAAAAAAAAAAAAAAACAAAAAAAAAAAAAAACAAAAAAAAAAQAAAACAAABgAAAAJAAAAA==eJwtxbcBACAMAKBYY/n/XwdhIeIrrm7uHp5OL28fXz8JUABDAQAAAACAAAAgAAAAEwAAAA==eJxjZoAANijNCaV5oDQAAgAAHw==
+   _AQAAAACAAABgAAAAOgAAAA==eJxjYIAAYzBQc4DQZg5pILDMAcp3cwArOuANFQ9wOHsGCHKCofJhDjNB4GcEVF00RF1bnAMAfB0caw==AQAAAACAAABgAAAAHQAAAA==eJybNRMEdtqfPQMEPJ4OaSDAFukwi0riAD8HLvk=AQAAAACAAAAMAAAAEwAAAA==eJz7z8DA0ADE////ZwAAGPcEfQ==AQAAAACAAAAMAAAAEAAAAA==eJxjYPj/nwEIQCQAGfID/Q==AQAAAACAAAAMAAAAFQAAAA==eJz7/////wOnGRgY/jMwAAA4bAaHAQAAAACAAACQAAAANAAAAA==eJxjYGiwZ8AJYHIQ+uwZHzuYDILdYA9hw9ScQVJzBknNGbiaWTMl4XYi2A32IDYAvcMY7A==AAAAAACAAAAAAAAAAAAAAACAAAAAAAAAAAAAAACAAAAAAAAAAAAAAACAAAAAAAAAAAAAAACAAAAAAAAAAAAAAACAAAAAAAAAAQAAAACAAABgAAAAJAAAAA==eJwtxbcBACAMAKBYY/n/XwdhIeIrrm7uHp5OL28fXz8JUABDAQAAAACAAAAgAAAAEwAAAA==eJxjZoAANijNCaV5oDQAAgAAHw==
   </AppendedData>
 </VTKFile>

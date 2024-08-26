@@ -8,7 +8,7 @@ pip install vtk trame trame-vtk trame-vuetify
 
 ### My environment (2024/8/17)
 - Windows         11 home 23H2
-- Python          3.12.5
+- Python          3.12.5 (3.10 required)
 - vtk             9.3.1
 - trame           3.6.3
 - trame-vtk       2.8.10

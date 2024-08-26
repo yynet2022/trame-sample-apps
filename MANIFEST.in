@@ -1,1 +1,1 @@
-include trame_sample_apps/data/*.vtk
+include trame_sample_apps/data/*.vt?
